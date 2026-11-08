@@ -1,0 +1,40 @@
+
+import asyncio
+import json
+from pathlib import Path
+
+import edge_tts
+
+OUTPUT_DIR = Path("output")
+VOICE = "en-IN-NeerjaNeural"
+
+
+async def generate_voice():
+    files = sorted(OUTPUT_DIR.glob("*.json"))
+
+    if not files:
+        raise FileNotFoundError("No daily script JSON found!")
+
+    latest_file = files[-1]
+    content = json.loads(
+        latest_file.read_text(encoding="utf-8")
+    )
+
+    narration = content["narration"]
+    audio_file = OUTPUT_DIR / (
+        f"{content['date']}_narration.mp3"
+    )
+
+    communicate = edge_tts.Communicate(
+        narration,
+        VOICE
+    )
+
+    await communicate.save(str(audio_file))
+
+    print("SUCCESS: AI voice generated!")
+    print(f"Audio: {audio_file}")
+
+
+if __name__ == "__main__":
+    asyncio.run(generate_voice())
