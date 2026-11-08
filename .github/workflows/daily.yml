@@ -1,33 +1,42 @@
 
-name: Daily Doodle Dino Pals Scripts
+import asyncio
+import json
+from pathlib import Path
 
-on:
-  schedule:
-    - cron: "30 3 * * *"
-  workflow_dispatch:
+import edge_tts
 
-permissions:
-  contents: read
+OUTPUT_DIR = Path("output")
+VOICE = "en-IN-NeerjaNeural"
 
-jobs:
-  generate-daily-script:
-    runs-on: ubuntu-latest
 
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+async def generate_voice():
+    files = sorted(OUTPUT_DIR.glob("*.json"))
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
+    if not files:
+        raise FileNotFoundError("No daily script JSON found!")
 
-      - name: Generate daily Shorts script
-        run: python daily_shorts.py
+    latest_file = files[-1]
 
-      - name: Save generated scripts
-        uses: actions/upload-artifact@v4
-        with:
-          name: daily-dino-shorts
-          path: output/
-          retention-days: 14
+    content = json.loads(
+        latest_file.read_text(encoding="utf-8")
+    )
+
+    narration = content["narration"]
+
+    audio_file = OUTPUT_DIR / (
+        f"{content['date']}_narration.mp3"
+    )
+
+    communicate = edge_tts.Communicate(
+        narration,
+        VOICE
+    )
+
+    await communicate.save(str(audio_file))
+
+    print("SUCCESS: AI voice generated!")
+    print(f"Audio: {audio_file}")
+
+
+if __name__ == "__main__":
+    asyncio.run(generate_voice())
