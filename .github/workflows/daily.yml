@@ -1,0 +1,33 @@
+
+name: Daily Doodle Dino Pals Scripts
+
+on:
+  schedule:
+    - cron: "30 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  generate-daily-script:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Generate daily Shorts script
+        run: python daily_shorts.py
+
+      - name: Save generated scripts
+        uses: actions/upload-artifact@v4
+        with:
+          name: daily-dino-shorts
+          path: output/
+          retention-days: 14
