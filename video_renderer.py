@@ -225,7 +225,7 @@ def render_scene(script_stem, title, scene, scene_number):
         "afade=t=in:st=0:d=0.25,afade=t=out:st=" + str(max(0.1, duration-0.45)) + ":d=0.4[a]",
         "-map", "0:v:0", "-map", "[a]",
         "-vf", f"fps=30,scale={FINAL_WIDTH}:{FINAL_HEIGHT}:flags=lanczos,format=yuv420p,"
-               "fade=t=in:st=0:d=0.25",
+               f"fade=t=in:st=0:d=0.25,fade=t=out:st={max(0.1, duration-0.35)}:d=0.35",
         "-t", f"{duration:.3f}", "-c:v", "libx264", "-preset", "veryfast",
         "-crf", "21", "-c:a", "aac", "-b:a", "160k",
         "-movflags", "+faststart", str(part),
@@ -255,7 +255,7 @@ def main():
         run_ffmpeg([
             "ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
             "-f", "concat", "-safe", "0", "-i", str(concat_file),
-            "-vf", "fade=t=out:st=0:d=0.01", "-c:v", "libx264", "-preset", "veryfast",
+            "-c:v", "libx264", "-preset", "veryfast",
             "-crf", "21", "-c:a", "aac", "-b:a", "160k", "-movflags", "+faststart",
             str(final_video),
         ])
