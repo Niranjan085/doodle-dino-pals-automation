@@ -1,26 +1,21 @@
-# Doodle Dino Pals Kids — Daily bilingual Shorts
+# Doodle Dino Pals automation (rebuilt)
 
-This workflow creates exactly 3 original 40-second children's learning Shorts packages each day:
-- English + Hindi scene narration with timestamps
-- Visual/animation prompts and on-screen text
-- Safe music guidance, descriptions and hashtags
-- Separate English and Hindi MP3 narration tracks (6 MP3s total)
+This starter workflow creates 3 short story scripts, generates English/Hindi Edge-TTS audio,
+renders vertical MP4s, and uploads MP4s as a GitHub Actions artifact.
 
-## Schedule
-Runs daily at 09:00 India time and can also be started manually from GitHub Actions.
+## Run locally
+```bash
+python -m pip install -r requirements.txt
+python daily_shorts.py
+python generate_voice.py
+python video_renderer.py
+```
+Requires FFmpeg installed and available on PATH.
 
-## Run manually
-1. Open the repository's **Actions** tab.
-2. Select **Daily Doodle Dino Pals - 3 Bilingual Shorts**.
-3. Select **Run workflow**.
+## GitHub
+Upload/commit these files to the repository root. Then open Actions and run
+**Daily Doodle Dino Pals Videos** manually. It also schedules daily at 09:00 IST.
 
-## Get the files
-Open the completed workflow run and download the artifact named
-`doodle-dino-pals-3-bilingual-shorts`. Artifacts are retained for 14 days.
-
-## Important limitations
-- This creates scripts and voice tracks, not finished MP4 videos.
-- It does not upload videos to YouTube.
-- `edge-tts` uses Microsoft's online speech service; availability and terms can change.
-- YouTube upload automation needs a separate YouTube Data API OAuth setup and user authorization.
-- GitHub Actions free usage is subject to GitHub's current account limits.
+## Scope
+This produces downloadable MP4s; it does NOT publish to YouTube. YouTube publishing needs
+OAuth credentials and a configured upload step. Do not put credentials in source code.
