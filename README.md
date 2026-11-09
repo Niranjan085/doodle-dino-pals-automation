@@ -1,13 +1,13 @@
 # Doodle Dino Pals — Daily Shorts Generator
 
-This project creates **three original, bilingual English + Hindi, vertical cartoon-style story videos** each day.
+This project creates **three original, bilingual English + Hindi, vertical 3D animated cartoon story videos** each day.
 
 ## What it does
 
 1. Selects three gentle, child-friendly stories from the built-in story library.
 2. Creates English and Hindi narration with Microsoft Edge text-to-speech voices.
-3. Draws original dinosaur scenes and readable bilingual captions.
-4. Adds subtle camera movement and combines narration into vertical 1080 × 1920 MP4 videos.
+3. Builds a rounded 3D dinosaur character, 3D props, studio lighting, a camera, and keyframed character motion with Blender; overlays readable bilingual captions.
+4. Adds subtle camera movement and combines narration into vertical 1080 × 1920 MP4 videos at 30 FPS.
 5. Runs software tests and checks that every video has valid picture, sound, dimensions, and duration.
 6. Saves the videos and a validation report as a downloadable GitHub Actions artifact.
 
@@ -27,7 +27,7 @@ Artifacts are retained for 7 days, so download anything you want to keep.
 
 ## Run locally
 
-Install Python 3.11+, FFmpeg (including ffprobe), and the fonts Noto Sans Devanagari and DejaVu Sans.
+Install Python 3.11+, Blender, FFmpeg (including ffprobe), and the fonts Noto Sans Devanagari and DejaVu Sans.
 
 ```bash
 python -m pip install -r requirements.txt
