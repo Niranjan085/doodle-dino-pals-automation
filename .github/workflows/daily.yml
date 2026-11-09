@@ -1,48 +1,41 @@
-import asyncio
-import json
-from pathlib import Path
-import edge_tts
 
-OUT = Path("output")
+name: Daily Dino Shorts
 
-VOICES = {
-    "en": "en-IN-NeerjaNeural",
-    "hi": "hi-IN-SwaraNeural"
-}
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 3 * * *"
 
-async def main():
-    files = sorted(OUT.glob("short_*.json"))
+permissions:
+  contents: read
 
-    if not files:
-        raise FileNotFoundError("No scripts found")
+jobs:
+  generate-shorts:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    for f in files:
-        data = json.loads(f.read_text(encoding="utf-8"))
-        scenes = data.get("scenes", [])
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
 
-        fallback = data.get("description") or data.get("title") or "Let's learn and have fun!"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install edge-tts
 
-        for n, scene in enumerate(scenes, 1):
-            for lang, voice in VOICES.items():
-                if not isinstance(scene, dict):
-                    text = str(scene).strip() or fallback
-                else:
-                    alias = "english" if lang == "en" else "hindi"
-                    text = (
-                        scene.get(lang)
-                        or scene.get(alias)
-                        or scene.get("text")
-                        or (fallback if lang == "en" else scene.get("en") or fallback)
-                    )
+      - name: Generate scripts
+        run: python daily_shorts.py
 
-                target = OUT / f"{f.stem}_scene{n}_{lang}.mp3"
+      - name: Generate voiceovers
+        run: python generate_voice.py
 
-                await edge_tts.Communicate(
-                    str(text), voice=voice
-                ).save(str(target))
-
-                print("Created", target)
-
-if __name__ == "__main__":
-    asyncio.run(main())
-    
+      - name: Save output
+        uses: actions/upload-artifact@v4
+        with:
+          name: dino-shorts-output
+          path: output/
+          if-no-files-found: error
+          retention-days: 7
