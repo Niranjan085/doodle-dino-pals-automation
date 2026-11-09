@@ -9,15 +9,20 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: daily-dino-shorts
+  cancel-in-progress: false
+
 jobs:
   generate-shorts:
+    name: Generate and verify bilingual Shorts
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Python
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
@@ -26,13 +31,22 @@ jobs:
       - name: Install FFmpeg and fonts
         run: |
           sudo apt-get update
-          sudo apt-get install -y ffmpeg fonts-noto-core
+          sudo apt-get install -y ffmpeg fonts-noto-core fonts-dejavu-core
           ffmpeg -version
+          ffprobe -version
 
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
+
+      - name: Run software tests
+        run: python -m unittest discover -s tests -v
+
+      - name: Prepare clean output folder
+        run: |
+          rm -rf output
+          mkdir -p output
 
       - name: Generate story scripts
         run: python daily_shorts.py
@@ -40,21 +54,51 @@ jobs:
       - name: Generate English and Hindi voiceovers
         run: python generate_voice.py
 
-      - name: Render vertical bilingual MP4 videos
+      - name: Render cartoon-style vertical MP4 videos
         run: python video_renderer.py
 
-      - name: Verify generated videos
+      - name: Verify every generated video
         run: |
-          set -e
-          count=$(find output -maxdepth 1 -type f -name 'short_*.mp4' | wc -l)
-          test "$count" -gt 0
-          for video in output/short_*.mp4; do
-            ffprobe -v error -select_streams v:0 -show_entries stream=width,height -of csv=s=x:p=0 "$video"
-            test -s "$video"
-          done
-          ls -lh output/short_*.mp4
+          python - <<'PY'
+          import json
+          import subprocess
+          from pathlib import Path
 
-      - name: Upload generated videos and source files
+          videos = sorted(Path("output").glob("short_*.mp4"))
+          if len(videos) != 3:
+              raise SystemExit(f"Expected 3 MP4 videos, found {len(videos)}")
+
+          report = []
+          for video in videos:
+              result = subprocess.run(
+                  ["ffprobe", "-v", "error", "-show_entries",
+                   "format=duration:stream=codec_type,width,height",
+                   "-of", "json", str(video)],
+                  check=True, capture_output=True, text=True,
+              )
+              metadata = json.loads(result.stdout)
+              streams = metadata.get("streams", [])
+              video_stream = next((s for s in streams if s.get("codec_type") == "video"), None)
+              audio_stream = next((s for s in streams if s.get("codec_type") == "audio"), None)
+              duration = float(metadata["format"]["duration"])
+              if not video_stream or not audio_stream:
+                  raise SystemExit(f"{video} is missing video or audio")
+              if video_stream.get("width") != 1080 or video_stream.get("height") != 1920:
+                  raise SystemExit(f"{video} is not 1080x1920")
+              if not 5 <= duration <= 180:
+                  raise SystemExit(f"{video} has invalid duration: {duration:.1f}s")
+              if video.stat().st_size < 100_000:
+                  raise SystemExit(f"{video} is unexpectedly small")
+              report.append({"file": str(video), "duration_seconds": round(duration, 1),
+                             "size_bytes": video.stat().st_size})
+          Path("output/validation-report.json").write_text(
+              json.dumps(report, indent=2), encoding="utf-8"
+          )
+          print(json.dumps(report, indent=2))
+          PY
+          ls -lh output/
+
+      - name: Upload generated videos and validation report
         uses: actions/upload-artifact@v4
         with:
           name: dino-shorts-output
