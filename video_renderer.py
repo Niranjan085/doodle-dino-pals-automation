@@ -165,6 +165,18 @@ def draw_frame(title, english, hindi, scene_number, frame, total_frames, out_pat
     image.save(out_path, quality=92)
 
 
+def scene_card(title, english, hindi, path, scene_number=1):
+    """Backward-compatible full-HD poster render used by the pipeline tests."""
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    preview = path.with_name(path.stem + "_preview.png")
+    draw_frame(title, english, hindi, scene_number, 0, 1, preview)
+    with Image.open(preview) as image:
+        image.resize((FINAL_WIDTH, FINAL_HEIGHT), Image.Resampling.LANCZOS).convert("RGB").save(path)
+    preview.unlink(missing_ok=True)
+
+
+
 def run_ffmpeg(args):
     subprocess.run(args, check=True)
 
