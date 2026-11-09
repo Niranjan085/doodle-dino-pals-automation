@@ -35,3 +35,4 @@ def main():
   subprocess.run(["ffmpeg","-y","-f","concat","-safe","0","-i",str(concat),"-c","copy",str(final)],check=True)
   print("Rendered",final)
 if __name__=="__main__": main()
+
