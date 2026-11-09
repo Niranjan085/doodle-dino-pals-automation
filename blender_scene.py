@@ -6,13 +6,12 @@ argv = sys.argv[sys.argv.index("--")+1:] if "--" in sys.argv else []
 out_dir = Path(argv[0]); frames = int(argv[1]); out_dir.mkdir(parents=True, exist_ok=True)
 bpy.ops.object.select_all(action="SELECT"); bpy.ops.object.delete(use_global=False)
 scene=bpy.context.scene
-# Blender 5.x exposes BLENDER_EEVEE; earlier 4.x builds may expose EEVEE_NEXT.
-engine_ids = {item.identifier for item in scene.render.bl_rna.properties["engine"].enum_items}
-scene.render.engine = ("BLENDER_EEVEE_NEXT" if "BLENDER_EEVEE_NEXT" in engine_ids
-                       else "BLENDER_EEVEE" if "BLENDER_EEVEE" in engine_ids
-                       else "BLENDER_WORKBENCH")
-if hasattr(scene, "eevee") and hasattr(scene.eevee, "taa_render_samples"):
-    scene.eevee.taa_render_samples = 16
+# Use CPU Cycles for reliable headless rendering on GitHub-hosted Linux runners.
+# Eevee depends on a working graphics context, which may be unavailable in CI.
+scene.render.engine = "CYCLES"
+scene.cycles.device = "CPU"
+scene.cycles.samples = 8
+scene.cycles.use_denoising = True
 scene.render.resolution_x=540; scene.render.resolution_y=960; scene.render.resolution_percentage=100
 scene.render.fps=12; scene.frame_end=frames
 scene.render.image_settings.file_format="PNG"; scene.render.film_transparent=False
