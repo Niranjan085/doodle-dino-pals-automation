@@ -226,6 +226,17 @@ def render_scene(script_stem, title, scene, scene_number):
     project_root = Path(__file__).resolve().parent
     run_ffmpeg([blender, "--background", "--python", str(project_root / "blender_scene.py"),
                 "--", str(frames_dir.resolve()), str(frame_count)])
+    # Blender can return exit code 0 even when its embedded Python script fails.
+    # Verify the complete frame sequence before opening images or encoding video.
+    expected_frames = [frames_dir / f"frame_{i:05d}.png" for i in range(frame_count)]
+    missing_frames = [str(path) for path in expected_frames if not path.is_file()]
+    if missing_frames:
+        sample = ", ".join(missing_frames[:3])
+        raise RuntimeError(
+            f"Blender did not render {len(missing_frames)} of {frame_count} expected frames "
+            f"for {script_stem} scene {scene_number}. Missing: {sample}. "
+            "Check the Blender error immediately above this message."
+        )
     # Add crisp bilingual story captions on top of the real 3D renders.
     title_font = load_font(25, EN_FONTS)
     en_font = load_font(18, EN_FONTS)
