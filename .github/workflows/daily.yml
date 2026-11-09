@@ -1,10 +1,10 @@
-
 name: Daily Dino Shorts
 
 on:
   workflow_dispatch:
   schedule:
-    - cron: "0 3 * * *"
+    # 09:00 India Standard Time (UTC+05:30)
+    - cron: "30 3 * * *"
 
 permissions:
   contents: read
@@ -12,6 +12,7 @@ permissions:
 jobs:
   generate-shorts:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -20,19 +21,34 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+          cache: "pip"
 
-      - name: Install dependencies
+      - name: Install FFmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+          ffmpeg -version
+
+      - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install edge-tts
+          python -m pip install -r requirements.txt
 
-      - name: Generate scripts
+      - name: Generate story scripts
         run: python daily_shorts.py
 
-      - name: Generate voiceovers
+      - name: Generate English and Hindi voiceovers
         run: python generate_voice.py
 
-      - name: Save output
+      - name: Render vertical MP4 videos
+        run: python video_renderer.py
+
+      - name: Verify generated videos
+        run: |
+          test -n "$(find output -maxdepth 1 -type f -name 'short_*.mp4' -print -quit)"
+          ls -lh output/*.mp4
+
+      - name: Upload generated videos and source files
         uses: actions/upload-artifact@v4
         with:
           name: dino-shorts-output
