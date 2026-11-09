@@ -1,48 +1,48 @@
 
-name: Daily Doodle Dino Pals Videos
+import asyncio
+import json
+from pathlib import Path
+import edge_tts
 
-on:
-  schedule:
-    - cron: "30 3 * * *"
-  workflow_dispatch:
+OUT = Path("output")
 
-permissions:
-  contents: read
+VOICES = {
+    "en": "en-IN-NeerjaNeural",
+    "hi": "hi-IN-SwaraNeural"
+}
 
-jobs:
-  generate:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
+async def main():
+    files = sorted(OUT.glob("short_*.json"))
 
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+    if not files:
+        raise FileNotFoundError("No scripts found")
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
+    for f in files:
+        data = json.loads(f.read_text(encoding="utf-8"))
+        scenes = data.get("scenes", [])
 
-      - name: Install FFmpeg
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y ffmpeg
+        fallback = data.get("description") or data.get("title") or "Let's learn and have fun!"
 
-      - name: Install Python packages
-        run: pip install edge-tts pillow
+        for n, scene in enumerate(scenes, 1):
+            for lang, voice in VOICES.items():
+                if not isinstance(scene, dict):
+                    text = str(scene).strip() or fallback
+                else:
+                    alias = "english" if lang == "en" else "hindi"
+                    text = (
+                        scene.get(lang)
+                        or scene.get(alias)
+                        or scene.get("text")
+                        or (fallback if lang == "en" else scene.get("en") or fallback)
+                    )
 
-      - name: Generate scripts
-        run: python daily_shorts.py
+                target = OUT / f"{f.stem}_scene{n}_{lang}.mp3"
 
-      - name: Generate bilingual narration
-        run: python generate_voice.py
+                await edge_tts.Communicate(
+                    str(text), voice=voice
+                ).save(str(target))
 
-      - name: Create MP4 videos
-        run: python video_renderer.py
+                print("Created", target)
 
-      - name: Save finished videos
-        uses: actions/upload-artifact@v4
-        with:
-          name: doodle-dino-pals-daily-videos
-          path: output/
-          retention-days: 14
+if __name__ == "__main__":
+    asyncio.run(main())
