@@ -2,12 +2,15 @@ import json
 import math
 import shutil
 import subprocess
+import wave
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
 
 OUT = Path("output")
-WIDTH, HEIGHT = 1080, 1920
+WIDTH, HEIGHT = 540, 960
+FPS = 12
+FINAL_WIDTH, FINAL_HEIGHT = 1080, 1920
 EN_FONTS = [
     "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
     "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf",
@@ -29,9 +32,9 @@ def wrap_text(draw, text, font, max_width):
     words = text.split()
     lines, current = [], ""
     for word in words:
-        trial = f"{current} {word}".strip()
-        if not current or draw.textbbox((0, 0), trial, font=font)[2] <= max_width:
-            current = trial
+        candidate = f"{current} {word}".strip()
+        if not current or draw.textbbox((0, 0), candidate, font=font)[2] <= max_width:
+            current = candidate
         else:
             lines.append(current)
             current = word
@@ -40,94 +43,126 @@ def wrap_text(draw, text, font, max_width):
     return lines
 
 
-def draw_centered_lines(draw, text, top, font, fill, max_width=900, line_gap=18):
-    y = top
+def centered_text(draw, text, y, font, fill, max_width=460, gap=5):
     for line in wrap_text(draw, text, font, max_width):
         box = draw.textbbox((0, 0), line, font=font, stroke_width=1)
         x = (WIDTH - (box[2] - box[0])) // 2
         draw.text((x, y), line, font=font, fill=fill,
-                  stroke_width=1, stroke_fill=(10, 25, 40))
-        y += box[3] - box[1] + line_gap
+                  stroke_width=1, stroke_fill=(25, 42, 55))
+        y += box[3] - box[1] + gap
     return y
 
 
-def draw_dino(draw, center_x=540, center_y=850, scale=1.0, pose=0):
-    # Friendly original dinosaur mascot made from simple vector shapes.
-    s = scale
-    green = (105, 205, 135)
-    dark = (35, 115, 85)
-    belly = (205, 240, 170)
-    # Tail and feet
-    draw.polygon([(int(center_x-220*s), int(center_y+80*s)),
-                  (int(center_x-390*s), int(center_y+10*s)),
-                  (int(center_x-285*s), int(center_y+180*s))], fill=green)
-    draw.ellipse((int(center_x-150*s), int(center_y+160*s),
-                  int(center_x-15*s), int(center_y+245*s)), fill=dark)
-    draw.ellipse((int(center_x+20*s), int(center_y+160*s),
-                  int(center_x+155*s), int(center_y+245*s)), fill=dark)
-    # Body, neck and head
-    draw.ellipse((int(center_x-235*s), int(center_y-90*s),
-                  int(center_x+235*s), int(center_y+220*s)), fill=green)
-    draw.rounded_rectangle((int(center_x+45*s), int(center_y-260*s),
-                            int(center_x+205*s), int(center_y+80*s)),
-                           radius=int(70*s), fill=green)
-    draw.ellipse((int(center_x-10*s), int(center_y-430*s),
-                  int(center_x+300*s), int(center_y-150*s)), fill=green)
-    # Back spikes
-    for i in range(4):
-        x = center_x - 130*s + i*82*s
-        y = center_y - 145*s - (i % 2)*20*s
-        draw.polygon([(int(x), int(y)), (int(x+35*s), int(y-95*s)),
-                      (int(x+75*s), int(y+5*s))], fill=(255, 190, 85))
-    # Belly patch and face
-    draw.ellipse((int(center_x-115*s), int(center_y+5*s),
-                  int(center_x+125*s), int(center_y+185*s)), fill=belly)
-    draw.ellipse((int(center_x+165*s), int(center_y-325*s),
-                  int(center_x+195*s), int(center_y-295*s)), fill=(20, 45, 55))
-    draw.ellipse((int(center_x+245*s), int(center_y-250*s),
-                  int(center_x+275*s), int(center_y-220*s)), fill=(255, 255, 255))
-    draw.arc((int(center_x+155*s), int(center_y-260*s),
-              int(center_x+265*s), int(center_y-175*s)),
-             start=10, end=100, fill=dark, width=max(3, int(7*s)))
-    # Little arms
-    draw.line((int(center_x+80*s), int(center_y+15*s),
-               int(center_x+210*s), int(center_y+75*s)),
-              fill=dark, width=max(8, int(24*s)))
-    draw.line((int(center_x+210*s), int(center_y+75*s),
-               int(center_x+250*s), int(center_y+35*s)),
-              fill=dark, width=max(8, int(24*s)))
-
-
-def scene_card(title, english, hindi, path, scene_number=1):
-    image = Image.new("RGB", (WIDTH, HEIGHT))
-    pixels = image.load()
-    top = (20, 48, 86)
-    bottom = (76, 145, 145)
+def background(draw, frame, scene_index):
+    # Procedurally illustrated, original storybook landscape (no stock assets).
     for y in range(HEIGHT):
-        ratio = y / (HEIGHT - 1)
-        color = tuple(int(top[i] * (1-ratio) + bottom[i] * ratio) for i in range(3))
-        ImageDraw.Draw(image).line((0, y, WIDTH, y), fill=color)
+        t = y / HEIGHT
+        color = (int(104 - 45*t), int(194 - 30*t), int(230 - 8*t))
+        draw.line((0, y, WIDTH, y), fill=color)
+    # Sun, soft clouds and layered hills
+    draw.ellipse((405, 75, 490, 160), fill=(255, 222, 117), outline=(255, 245, 190), width=5)
+    for x, y in [(45, 155), (250, 95), (360, 220)]:
+        drift = int(8 * math.sin(frame / 9 + x))
+        draw.ellipse((x+drift, y, x+85+drift, y+32), fill=(250, 255, 255))
+        draw.ellipse((x+18+drift, y-20, x+58+drift, y+28), fill=(250, 255, 255))
+    draw.ellipse((-100, 545, 350, 850), fill=(99, 190, 125))
+    draw.ellipse((180, 520, 700, 880), fill=(68, 160, 112))
+    # Trees with rounded leafy canopies
+    for x, y in [(35, 485), (455, 490)]:
+        draw.rectangle((x-8, y, x+15, y+155), fill=(126, 83, 55))
+        draw.ellipse((x-52, y-68, x+62, y+48), fill=(43, 139, 91))
+        draw.ellipse((x-32, y-100, x+45, y+20), fill=(62, 160, 98))
+    # Foreground grass
+    draw.rectangle((0, 760, WIDTH, HEIGHT), fill=(65, 153, 94))
+    for i in range(22):
+        x = (i * 47 + scene_index * 19) % WIDTH
+        draw.line((x, 785, x-7, 765), fill=(155, 211, 115), width=3)
 
+
+def draw_dino(draw, x, y, frame):
+    bob = int(7 * math.sin(frame * 0.55))
+    y += bob
+    green, dark, belly = (105, 204, 130), (42, 125, 91), (218, 238, 167)
+    # tail, body and neck
+    draw.polygon([(x-85, y+45), (x-175, y+8), (x-125, y+95)], fill=green)
+    draw.ellipse((x-90, y-20, x+92, y+145), fill=green, outline=dark, width=4)
+    draw.rounded_rectangle((x+20, y-145, x+90, y+70), radius=30, fill=green, outline=dark, width=4)
+    draw.ellipse((x-5, y-220, x+135, y-90), fill=green, outline=dark, width=4)
+    # golden back spikes
+    for i in range(4):
+        sx = x - 65 + i*37
+        draw.polygon([(sx, y-25-i%2*8), (sx+15, y-75-i%2*8), (sx+34, y-18)], fill=(255, 190, 77))
+    draw.ellipse((x-48, y+35, x+52, y+125), fill=belly)
+    # legs and animated waving arm
+    stride = int(8 * math.sin(frame * 0.7))
+    draw.ellipse((x-65, y+115+stride, x-5, y+150+stride), fill=dark)
+    draw.ellipse((x+25, y+115-stride, x+85, y+150-stride), fill=dark)
+    arm_y = int(16 * math.sin(frame * 0.6))
+    draw.line((x+55, y+15, x+112, y+52+arm_y), fill=dark, width=13)
+    draw.ellipse((x+103, y+42+arm_y, x+124, y+64+arm_y), fill=green)
+    # expressive eyes and smile
+    draw.ellipse((x+78, y-184, x+94, y-168), fill=(20, 45, 55))
+    draw.ellipse((x+83, y-182, x+88, y-177), fill="white")
+    draw.arc((x+65, y-157, x+120, y-115), 5, 115, fill=dark, width=4)
+
+
+def draw_story_prop(draw, title, english, frame):
+    key = (title + " " + english).lower()
+    cx, cy = 270, 600
+    bob = int(5 * math.sin(frame * .4))
+    if any(k in key for k in ("block", "tower", "share")):
+        for i, color in enumerate([(255, 116, 104), (255, 205, 78), (93, 173, 240)]):
+            xx = 210 + (i % 2)*55
+            yy = 515 - (i//2)*48 + bob
+            draw.rounded_rectangle((xx, yy, xx+48, yy+48), radius=8, fill=color, outline="white", width=3)
+    elif any(k in key for k in ("hand", "soap", "snack")):
+        draw.rounded_rectangle((205, 510+bob, 335, 575+bob), radius=20, fill=(115, 207, 239), outline="white", width=4)
+        draw.rounded_rectangle((235, 475+bob, 305, 520+bob), radius=12, fill=(255, 255, 255), outline=(70, 140, 180), width=3)
+        for i in range(5):
+            draw.ellipse((215+i*25, 455+(i%2)*18+bob, 230+i*25, 470+(i%2)*18+bob), fill=(235, 250, 255))
+    elif any(k in key for k in ("plant", "garden", "water", "sunlight")):
+        draw.rounded_rectangle((235, 610+bob, 310, 690+bob), radius=10, fill=(177, 105, 67))
+        draw.line((272, 615+bob, 272, 500+bob), fill=(52, 130, 75), width=9)
+        draw.ellipse((220, 500+bob, 275, 540+bob), fill=(85, 190, 95))
+        draw.ellipse((270, 525+bob, 325, 565+bob), fill=(65, 170, 85))
+    elif any(k in key for k in ("book", "help", "friend")):
+        draw.polygon([(210, 520+bob), (270, 535+bob), (270, 620+bob), (210, 605+bob)], fill=(255, 218, 110), outline="white")
+        draw.polygon([(270, 535+bob), (330, 520+bob), (330, 605+bob), (270, 620+bob)], fill=(115, 185, 245), outline="white")
+        for yy in [555, 575, 595]:
+            draw.line((222, yy+bob, 258, yy+8+bob), fill=(130, 95, 65), width=3)
+            draw.line((282, yy+8+bob, 318, yy+bob), fill=(55, 105, 160), width=3)
+    elif any(k in key for k in ("star", "draw", "practice")):
+        points = []
+        for i in range(10):
+            radius = 62 if i % 2 == 0 else 27
+            angle = -math.pi/2 + i*math.pi/5
+            points.append((cx + math.cos(angle)*radius, 535+bob + math.sin(angle)*radius))
+        draw.polygon(points, fill=(255, 211, 82), outline="white")
+    else:
+        draw.ellipse((235, 520+bob, 315, 600+bob), fill=(255, 210, 90), outline="white", width=4)
+
+
+def draw_frame(title, english, hindi, scene_number, frame, total_frames, out_path):
+    image = Image.new("RGB", (WIDTH, HEIGHT), (100, 180, 220))
     draw = ImageDraw.Draw(image)
-    # Decorative sky bubbles and simple landscape.
-    for x, y, radius in [(120, 230, 36), (930, 320, 52), (870, 1160, 28), (170, 1300, 22)]:
-        draw.ellipse((x-radius, y-radius, x+radius, y+radius), fill=(145, 210, 205))
-    draw.ellipse((-180, 1470, 1260, 2140), fill=(55, 135, 105))
-    draw.rounded_rectangle((55, 90, 1025, 430), radius=55, fill=(17, 38, 69))
-    title_font = load_font(58, EN_FONTS)
-    draw_centered_lines(draw, title, 170, title_font, (255, 220, 115), 850, 16)
-    draw_dino(draw, center_y=900, scale=1.0, pose=scene_number)
-
-    # Readable bilingual caption panel.
-    draw.rounded_rectangle((55, 1260, 1025, 1810), radius=48, fill=(17, 38, 69))
-    en_font = load_font(43, EN_FONTS)
-    hi_font = load_font(43, HI_FONTS)
-    draw_centered_lines(draw, english, 1335, en_font, (255, 255, 255), 850, 12)
-    draw.line((180, 1535, 900, 1535), fill=(110, 190, 190), width=4)
-    draw_centered_lines(draw, hindi, 1600, hi_font, (205, 240, 255), 850, 12)
-    draw.text((WIDTH-180, HEIGHT-90), f"{scene_number}/3",
-              font=load_font(28, EN_FONTS), fill=(255, 255, 255))
-    image.save(path, quality=95)
+    background(draw, frame, scene_number)
+    # A small camera drift plus character bob creates motion between frames.
+    dino_x = 265 + int(10 * math.sin(frame / 15))
+    draw_story_prop(draw, title, english, frame)
+    draw_dino(draw, dino_x, 635, frame)
+    # Title ribbon
+    draw.rounded_rectangle((22, 24, 518, 132), radius=25, fill=(24, 49, 78), outline=(255, 218, 115), width=4)
+    title_font = load_font(27, EN_FONTS)
+    centered_text(draw, title, 58, title_font, (255, 224, 133), 450, 4)
+    # Bilingual caption panel with safe margins and readable type
+    draw.rounded_rectangle((22, 790, 518, 930), radius=24, fill=(18, 42, 68), outline=(135, 205, 220), width=3)
+    en_font = load_font(19, EN_FONTS)
+    hi_font = load_font(19, HI_FONTS)
+    centered_text(draw, english, 806, en_font, (255, 255, 255), 455, 2)
+    draw.line((65, 861, 475, 861), fill=(100, 170, 190), width=2)
+    centered_text(draw, hindi, 875, hi_font, (210, 240, 255), 455, 2)
+    draw.text((468, 945), f"{scene_number}/3", font=load_font(15, EN_FONTS), fill="white")
+    image.save(out_path, quality=92)
 
 
 def run_ffmpeg(args):
@@ -143,28 +178,57 @@ def audio_duration(path):
     return float(result.stdout.strip())
 
 
+def make_original_music(path, duration):
+    # Quiet, synthesized three-note ambient loop; no third-party music asset.
+    sample_rate = 22050
+    total = int(sample_rate * duration)
+    notes = [(261.63, 329.63, 392.00), (293.66, 349.23, 440.00)]
+    with wave.open(str(path), "wb") as wav:
+        wav.setnchannels(1)
+        wav.setsampwidth(2)
+        wav.setframerate(sample_rate)
+        chunk = bytearray()
+        for i in range(total):
+            t = i / sample_rate
+            chord = notes[int(t // 4) % len(notes)]
+            value = sum(math.sin(2*math.pi*f*t) for f in chord) / 3
+            fade = min(1.0, t/0.8, (duration-t)/1.0)
+            sample = int(32767 * 0.035 * max(0.0, fade) * value)
+            chunk.extend(int(sample).to_bytes(2, "little", signed=True))
+        wav.writeframes(chunk)
+
+
 def render_scene(script_stem, title, scene, scene_number):
-    picture = OUT / f"{script_stem}_scene{scene_number}.png"
-    english_audio = OUT / f"{script_stem}_scene{scene_number}_en.mp3"
-    hindi_audio = OUT / f"{script_stem}_scene{scene_number}_hi.mp3"
-    for required in (english_audio, hindi_audio):
+    en_audio = OUT / f"{script_stem}_scene{scene_number}_en.mp3"
+    hi_audio = OUT / f"{script_stem}_scene{scene_number}_hi.mp3"
+    for required in (en_audio, hi_audio):
         if not required.exists() or required.stat().st_size < 500:
             raise FileNotFoundError(f"Missing or empty narration: {required}")
-
-    scene_card(title, scene["en"], scene["hi"], picture, scene_number)
-    combined_duration = audio_duration(english_audio) + audio_duration(hindi_audio)
-    frames = max(1, math.ceil(combined_duration * 30))
+    duration = audio_duration(en_audio) + audio_duration(hi_audio)
+    frames_dir = OUT / f"{script_stem}_frames{scene_number}"
+    frames_dir.mkdir(parents=True, exist_ok=True)
+    frame_count = max(12, math.ceil(duration * FPS))
+    for frame in range(frame_count):
+        draw_frame(title, scene["en"], scene["hi"], scene_number, frame,
+                   frame_count, frames_dir / f"frame_{frame:05d}.png")
+    music = OUT / f"{script_stem}_scene{scene_number}_music.wav"
+    make_original_music(music, duration + 0.5)
     part = OUT / f"{script_stem}_part{scene_number}.mp4"
     run_ffmpeg([
         "ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
-        "-loop", "1", "-framerate", "30", "-i", str(picture),
-        "-i", str(english_audio), "-i", str(hindi_audio),
-        "-filter_complex", "[1:a][2:a]concat=n=2:v=0:a=1[a]",
+        "-framerate", str(FPS), "-i", str(frames_dir / "frame_%05d.png"),
+        "-i", str(en_audio), "-i", str(hi_audio), "-i", str(music),
+        "-filter_complex",
+        "[1:a][2:a]concat=n=2:v=0:a=1[narr];"
+        "[3:a]volume=0.20[music];"
+        "[narr][music]amix=inputs=2:duration=first:dropout_transition=1,"
+        "afade=t=in:st=0:d=0.25,afade=t=out:st=" + str(max(0.1, duration-0.45)) + ":d=0.4[a]",
         "-map", "0:v:0", "-map", "[a]",
-        "-vf", f"zoompan=z='min(zoom+0.00035,1.06)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:s={WIDTH}x{HEIGHT}:fps=30,format=yuv420p",
-        "-frames:v", str(frames), "-c:v", "libx264", "-preset", "veryfast",
-        "-crf", "23", "-c:a", "aac", "-b:a", "128k",
-        "-shortest", "-movflags", "+faststart", str(part),
+        "-vf", f"fps=30,scale={FINAL_WIDTH}:{FINAL_HEIGHT}:flags=lanczos,format=yuv420p,"
+               "fade=t=in:st=0:d=0.25",
+        "-t", f"{duration:.3f}", "-c:v", "libx264", "-preset", "veryfast",
+        "-crf", "21", "-c:a", "aac", "-b:a", "160k",
+        "-movflags", "+faststart", str(part),
     ])
     return part
 
@@ -176,28 +240,26 @@ def main():
     scripts = sorted(OUT.glob("short_*.json"))
     if len(scripts) != 3:
         raise RuntimeError(f"Expected exactly 3 story scripts; found {len(scripts)}.")
-
     for script in scripts:
         data = json.loads(script.read_text(encoding="utf-8"))
         scenes = data.get("scenes", [])
         if len(scenes) != 3:
             raise ValueError(f"{script.name} must contain exactly 3 scenes.")
-        parts = [
-            render_scene(script.stem, data["title"], scene, index)
-            for index, scene in enumerate(scenes, start=1)
-        ]
+        parts = [render_scene(script.stem, data["title"], scene, index)
+                 for index, scene in enumerate(scenes, start=1)]
         concat_file = OUT / f"{script.stem}_concat.txt"
         concat_file.write_text(
-            "".join(f"file '{part.resolve()}'\n" for part in parts),
-            encoding="utf-8",
+            "".join(f"file '{part.resolve()}'\n" for part in parts), encoding="utf-8"
         )
         final_video = OUT / f"{script.stem}.mp4"
         run_ffmpeg([
             "ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
             "-f", "concat", "-safe", "0", "-i", str(concat_file),
-            "-c", "copy", "-movflags", "+faststart", str(final_video),
+            "-vf", "fade=t=out:st=0:d=0.01", "-c:v", "libx264", "-preset", "veryfast",
+            "-crf", "21", "-c:a", "aac", "-b:a", "160k", "-movflags", "+faststart",
+            str(final_video),
         ])
-        print(f"Rendered video: {final_video}")
+        print(f"Rendered animated video: {final_video}")
 
 
 if __name__ == "__main__":
