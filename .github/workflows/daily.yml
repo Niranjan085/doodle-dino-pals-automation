@@ -19,7 +19,7 @@ jobs:
   generate-shorts:
     name: Generate and verify bilingual Shorts
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 90
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -33,9 +33,10 @@ jobs:
       - name: Install FFmpeg and fonts
         run: |
           sudo apt-get update
-          sudo apt-get install -y ffmpeg fonts-noto-core fonts-dejavu-core
+          sudo apt-get install -y ffmpeg blender fonts-noto-core fonts-dejavu-core
           ffmpeg -version
           ffprobe -version
+          blender --version | head -n 2
 
       - name: Install Python dependencies
         run: |
@@ -56,7 +57,7 @@ jobs:
       - name: Generate English and Hindi voiceovers
         run: python generate_voice.py
 
-      - name: Render cartoon-style vertical MP4 videos
+      - name: Render genuine 3D animated vertical MP4 videos
         run: python video_renderer.py
 
       - name: Verify every generated video
