@@ -1,5 +1,5 @@
 
-name: Daily Doodle Dino Pals Scripts
+name: Daily Doodle Dino Pals Videos
 
 on:
   schedule:
@@ -12,6 +12,8 @@ permissions:
 jobs:
   generate:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -21,18 +23,26 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install dependencies
-        run: pip install edge-tts
+      - name: Install FFmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
 
-      - name: Generate daily script
+      - name: Install Python packages
+        run: pip install edge-tts pillow
+
+      - name: Generate scripts
         run: python daily_shorts.py
 
-      - name: Generate AI voice
+      - name: Generate bilingual narration
         run: python generate_voice.py
 
-      - name: Save output
+      - name: Create MP4 videos
+        run: python video_renderer.py
+
+      - name: Save finished videos
         uses: actions/upload-artifact@v4
         with:
-          name: daily-dino-shorts
+          name: doodle-dino-pals-daily-videos
           path: output/
           retention-days: 14
