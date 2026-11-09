@@ -12,3 +12,4 @@ async def main():
     await edge_tts.Communicate(s[lang],voice=voice).save(str(target))
     print("Created",target)
 if __name__=="__main__": asyncio.run(main())
+
