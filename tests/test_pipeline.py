@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from PIL import Image
+from PIL import Image, ImageChops
 
 import daily_shorts
 import video_renderer
@@ -24,6 +24,14 @@ class PipelineTests(unittest.TestCase):
                     self.assertTrue(scene["en"].strip())
                     self.assertTrue(scene["hi"].strip())
 
+    def test_2d_cartoon_frames_are_animated(self):
+        with tempfile.TemporaryDirectory() as folder:
+            first = Path(folder) / "frame0.png"
+            later = Path(folder) / "frame8.png"
+            video_renderer.draw_frame("Dino Learns to Share", "Dino shares blocks.", "डिनो ब्लॉक्स बाँटता है।", 1, 0, 24, first)
+            video_renderer.draw_frame("Dino Learns to Share", "Dino shares blocks.", "डिनो ब्लॉक्स बाँटता है।", 1, 8, 24, later)
+            with Image.open(first) as a, Image.open(later) as b:
+                self.assertIsNotNone(ImageChops.difference(a, b).getbbox())
     def test_scene_card_is_vertical_full_hd(self):
         with tempfile.TemporaryDirectory() as folder:
             target = Path(folder) / "scene.png"
