@@ -103,6 +103,26 @@ for frame in range(1,frames+1):
  arms[1].rotation_euler[1]=.65+.45*math.sin(t*5)
  arms[0].rotation_euler[1]=-.65+.12*math.sin(t*4)
  for o in [body,head,neck,belly_obj,tail,*arms]: o.keyframe_insert(data_path="location" if o in [body,head,neck,belly_obj] else "rotation_euler",frame=frame)
+ # Animate floating sparkles and fluttering butterflies.
+ for i,(orb,x,z) in enumerate(sparkles):
+  orb.location=(x,.15,z+.13*math.sin(t*2.4+i))
+  pulse=.07+.025*(.5+.5*math.sin(t*4+i))
+  orb.scale=(pulse,pulse,pulse)
+  orb.keyframe_insert(data_path="location",frame=frame)
+  orb.keyframe_insert(data_path="scale",frame=frame)
+ for i,(b,lw,rw,x,z) in enumerate(butterflies):
+  dx=x+.22*math.sin(t*1.7+i)
+  dz=z+.18*math.sin(t*2.3+i)
+  b.location=(dx,-.2,dz)
+  lw.location=(dx-.18,-.22,dz+.02)
+  rw.location=(dx+.18,-.22,dz+.02)
+  wing=.45*math.sin(t*13+i)
+  lw.rotation_euler[1]=wing
+  rw.rotation_euler[1]=-wing
+  for obj in (b,lw,rw):
+   obj.keyframe_insert(data_path="location",frame=frame)
+  lw.keyframe_insert(data_path="rotation_euler",frame=frame)
+  rw.keyframe_insert(data_path="rotation_euler",frame=frame)
 # interpolate smooth movement
 if scene.animation_data and scene.animation_data.action:
  for fc in scene.animation_data.action.fcurves:
