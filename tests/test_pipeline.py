@@ -36,7 +36,6 @@ class PipelineTests(unittest.TestCase):
             with Image.open(target) as image:
                 self.assertEqual(image.size, (video_renderer.FINAL_WIDTH, video_renderer.FINAL_HEIGHT))
                 self.assertEqual(image.mode, "RGB")
-                self.assertEqual(image.size[0] * 9, image.size[1] *  (9/16) * 16) if False else None
 
 
 if __name__ == "__main__":
