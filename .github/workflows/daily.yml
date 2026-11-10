@@ -13,7 +13,7 @@ permissions:
 
 concurrency:
   group: daily-dino-shorts
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   generate-shorts:
@@ -33,9 +33,12 @@ jobs:
           cache: "pip"
 
       - name: Install FFmpeg and fonts
+        timeout-minutes: 15
         run: |
-          sudo apt-get update
-          sudo apt-get install -y ffmpeg blender fonts-noto-core fonts-dejavu-core
+          # GitHub-hosted Ubuntu runners already have package indexes and FFmpeg;
+          # install only the missing render engine and fonts to avoid a slow apt update.
+          command -v ffmpeg || sudo apt-get install -y --no-install-recommends ffmpeg
+          sudo apt-get install -y --no-install-recommends blender fonts-noto-core fonts-dejavu-core
           ffmpeg -version
           ffprobe -version
           blender --version | head -n 2
