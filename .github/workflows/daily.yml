@@ -32,16 +32,13 @@ jobs:
           python-version: "3.11"
           cache: "pip"
 
-      - name: Install FFmpeg and fonts
+      - name: Install FFmpeg and 2D caption fonts
         timeout-minutes: 15
         run: |
-          # GitHub-hosted Ubuntu runners already have package indexes and FFmpeg;
-          # install only the missing render engine and fonts to avoid a slow apt update.
           command -v ffmpeg || sudo apt-get install -y --no-install-recommends ffmpeg
-          sudo apt-get install -y --no-install-recommends blender fonts-noto-core fonts-dejavu-core
+          sudo apt-get install -y --no-install-recommends fonts-noto-core fonts-dejavu-core
           ffmpeg -version
           ffprobe -version
-          blender --version | head -n 2
 
       - name: Install Python dependencies
         run: |
@@ -62,7 +59,7 @@ jobs:
       - name: Generate English and Hindi voiceovers
         run: python generate_voice.py
 
-      - name: Render genuine 3D animated vertical MP4 videos
+      - name: Render animated 2D cartoon vertical MP4 videos
         run: python video_renderer.py
 
       - name: Verify every generated video
