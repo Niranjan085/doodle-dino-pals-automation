@@ -7,9 +7,13 @@ This project creates **three original, bilingual English + Hindi, vertical 3D an
 1. Selects three gentle, child-friendly stories from the built-in story library.
 2. Creates English and Hindi narration with Microsoft Edge text-to-speech voices.
 3. Builds a rounded 3D dinosaur character, 3D props, studio lighting, a camera, and keyframed character motion with Blender; overlays readable bilingual captions.
-4. Adds subtle camera movement and combines narration into vertical 1080 × 1920 MP4 videos at 30 FPS.
+4. Adds subtle camera movement and combines narration into native 4K vertical 2160 × 3840 MP4 videos at 30 FPS by default (set `DINO_QUALITY=1080p` for faster Full HD runs).
 5. Runs software tests and checks that every video has valid picture, sound, dimensions, and duration.
 6. Saves the videos and a validation report as a downloadable GitHub Actions artifact.
+
+## Video quality
+
+The GitHub Actions workflow renders native 4K (2160 × 3840, 9:16) by default. Set `DINO_QUALITY=1080p` for a faster Full HD render. 4K rendering takes more CPU time and storage.
 
 ## Daily schedule
 
