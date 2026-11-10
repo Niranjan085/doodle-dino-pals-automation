@@ -251,42 +251,17 @@ def render_scene(script_stem, title, scene, scene_number):
     frames_dir = OUT / f"{script_stem}_frames{scene_number}"
     frames_dir.mkdir(parents=True, exist_ok=True)
     frame_count = max(12, math.ceil(duration * FPS))
-    blender = shutil.which("blender")
-    if not blender:
-        raise RuntimeError("Blender is required for genuine 3D rendering. Install Blender and retry.")
-    project_root = Path(__file__).resolve().parent
-    run_ffmpeg([blender, "--background", "--python", str(project_root / "blender_scene.py"),
-                "--", str(frames_dir.resolve()), str(frame_count), QUALITY])
-    # Blender can return exit code 0 even when its embedded Python script fails.
-    # Verify the complete frame sequence before opening images or encoding video.
-    expected_frames = [frames_dir / f"frame_{i:05d}.png" for i in range(frame_count)]
-    missing_frames = [str(path) for path in expected_frames if not path.is_file()]
-    if missing_frames:
-        sample = ", ".join(missing_frames[:3])
-        raise RuntimeError(
-            f"Blender did not render {len(missing_frames)} of {frame_count} expected frames "
-            f"for {script_stem} scene {scene_number}. Missing: {sample}. "
-            "Check the Blender error immediately above this message."
-        )
-    # Add crisp bilingual story captions on top of the real 3D renders.
-    title_font = load_font(25, EN_FONTS, SCALE)
-    en_font = load_font(18, EN_FONTS, SCALE)
-    hi_font = load_font(18, HI_FONTS, SCALE)
+    # Pure-Python 2D cartoon rendering: no Blender, EGL, GPU, or 3D engine.
     for frame in range(frame_count):
         frame_path = frames_dir / f"frame_{frame:05d}.png"
-        with Image.open(frame_path) as source:
+        preview_path = frames_dir / f"preview_{frame:05d}.png"
+        draw_frame(title, scene["en"], scene["hi"], scene_number, frame, frame_count, preview_path)
+        with Image.open(preview_path) as source:
             image = source.convert("RGB")
-        draw = ScaledDraw(ImageDraw.Draw(image, "RGBA"), SCALE)
-        draw.rounded_rectangle((18, 18, WIDTH-18, 112), radius=22,
-                               fill=(20, 42, 66, 218), outline=(255, 213, 110, 255), width=3)
-        centered_text(draw, title, 48, title_font, (255, 225, 140), WIDTH-70, 3)
-        draw.rounded_rectangle((18, 785, WIDTH-18, 940), radius=22,
-                               fill=(15, 34, 55, 225), outline=(130, 205, 220, 255), width=3)
-        centered_text(draw, scene["en"], 800, en_font, (255,255,255), WIDTH-65, 2)
-        draw.line((55, 860, WIDTH-55, 860), fill=(120,180,195,255), width=2)
-        centered_text(draw, scene["hi"], 875, hi_font, (215,240,255), WIDTH-65, 2)
-        draw.text((WIDTH-58, 945), f"{scene_number}/3", font=load_font(14, EN_FONTS), fill="white")
-        image.save(frame_path)
+            if image.size != (FINAL_WIDTH, FINAL_HEIGHT):
+                image = image.resize((FINAL_WIDTH, FINAL_HEIGHT), Image.Resampling.LANCZOS)
+            image.save(frame_path, format="PNG")
+        preview_path.unlink(missing_ok=True)
     music = OUT / f"{script_stem}_scene{scene_number}_music.wav"
     make_original_music(music, duration + 0.5)
     part = OUT / f"{script_stem}_part{scene_number}.mp4"
@@ -307,7 +282,6 @@ def render_scene(script_stem, title, scene, scene_number):
         "-movflags", "+faststart", str(part),
     ])
     return part
-
 
 def main():
     if shutil.which("ffmpeg") is None or shutil.which("ffprobe") is None:
