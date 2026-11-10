@@ -6,12 +6,19 @@ argv = sys.argv[sys.argv.index("--")+1:] if "--" in sys.argv else []
 out_dir = Path(argv[0]); frames = int(argv[1]); out_dir.mkdir(parents=True, exist_ok=True)
 bpy.ops.object.select_all(action="SELECT"); bpy.ops.object.delete(use_global=False)
 scene=bpy.context.scene
-# Use CPU Cycles for reliable headless rendering on GitHub-hosted Linux runners.
-# Eevee depends on a working graphics context, which may be unavailable in CI.
-scene.render.engine = "CYCLES"
-scene.cycles.device = "CPU"
-scene.cycles.samples = 8
-scene.cycles.use_denoising = True
+# Use Blender Workbench for fast, reliable headless 3D rendering in CI.
+# Workbench renders the actual 3D mesh scene with studio shading, cavity and shadows;
+# unlike path-traced Cycles, it does not spend minutes sampling every pixel on CPU.
+scene.render.engine = "BLENDER_WORKBENCH"
+scene.display.shading.light = "STUDIO"
+scene.display.shading.color_type = "MATERIAL"
+scene.display.shading.background_type = "WORLD"
+scene.display.shading.show_shadows = True
+scene.display.shading.show_cavity = True
+scene.display.shading.cavity_type = "BOTH"
+scene.display.shading.cavity_ridge_factor = 1.2
+scene.display.shading.cavity_valley_factor = 1.0
+scene.display.shading.studiolight_rotate_z = math.radians(25)
 scene.render.resolution_x=540; scene.render.resolution_y=960; scene.render.resolution_percentage=100
 scene.render.fps=12; scene.frame_end=frames
 scene.render.image_settings.file_format="PNG"; scene.render.film_transparent=False
