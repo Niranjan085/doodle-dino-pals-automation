@@ -10,7 +10,10 @@ from PIL import Image, ImageDraw, ImageFont
 OUT = Path("output")
 WIDTH, HEIGHT = 540, 960
 FPS = 12
-FINAL_WIDTH, FINAL_HEIGHT = 1080, 1920
+import os
+QUALITY = os.getenv("DINO_QUALITY", "1080p").lower()
+SCALE = 4 if QUALITY in ("4k", "2160p", "uhd") else 2
+FINAL_WIDTH, FINAL_HEIGHT = WIDTH * SCALE, HEIGHT * SCALE
 EN_FONTS = [
     "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
     "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf",
@@ -21,10 +24,38 @@ HI_FONTS = [
 ]
 
 
-def load_font(size, candidates):
+class ScaledDraw:
+    """Draw using 540x960 design coordinates on a native-resolution frame."""
+    def __init__(self, draw, scale):
+        self.draw, self.scale = draw, scale
+    def _box(self, box):
+        return tuple(round(v*self.scale) for v in box)
+    def rounded_rectangle(self, box, radius=0, **kwargs):
+        if "width" in kwargs: kwargs["width"] *= self.scale
+        self.draw.rounded_rectangle(self._box(box), radius=radius*self.scale, **kwargs)
+    def line(self, xy, **kwargs):
+        if "width" in kwargs: kwargs["width"] *= self.scale
+        self.draw.line([self._box(p) for p in xy], **kwargs)
+    def ellipse(self, box, **kwargs):
+        if "width" in kwargs: kwargs["width"] *= self.scale
+        self.draw.ellipse(self._box(box), **kwargs)
+    def arc(self, box, start, end, **kwargs):
+        if "width" in kwargs: kwargs["width"] *= self.scale
+        self.draw.arc(self._box(box), start, end, **kwargs)
+    def polygon(self, xy, **kwargs):
+        if "width" in kwargs: kwargs["width"] *= self.scale
+        self.draw.polygon([self._box(p) for p in xy], **kwargs)
+    def text(self, xy, text, **kwargs):
+        if "stroke_width" in kwargs: kwargs["stroke_width"] *= self.scale
+        self.draw.text(self._box(xy), text, **kwargs)
+    def textbbox(self, xy, text, **kwargs):
+        return tuple(round(v/self.scale) for v in self.draw.textbbox(self._box(xy), text, **kwargs))
+
+
+def load_font(size, candidates, scale=1):
     for candidate in candidates:
         if Path(candidate).exists():
-            return ImageFont.truetype(candidate, size)
+            return ImageFont.truetype(candidate, size * scale)
     return ImageFont.load_default()
 
 
@@ -225,7 +256,7 @@ def render_scene(script_stem, title, scene, scene_number):
         raise RuntimeError("Blender is required for genuine 3D rendering. Install Blender and retry.")
     project_root = Path(__file__).resolve().parent
     run_ffmpeg([blender, "--background", "--python", str(project_root / "blender_scene.py"),
-                "--", str(frames_dir.resolve()), str(frame_count)])
+                "--", str(frames_dir.resolve()), str(frame_count), QUALITY])
     # Blender can return exit code 0 even when its embedded Python script fails.
     # Verify the complete frame sequence before opening images or encoding video.
     expected_frames = [frames_dir / f"frame_{i:05d}.png" for i in range(frame_count)]
@@ -238,14 +269,14 @@ def render_scene(script_stem, title, scene, scene_number):
             "Check the Blender error immediately above this message."
         )
     # Add crisp bilingual story captions on top of the real 3D renders.
-    title_font = load_font(25, EN_FONTS)
-    en_font = load_font(18, EN_FONTS)
-    hi_font = load_font(18, HI_FONTS)
+    title_font = load_font(25, EN_FONTS, SCALE)
+    en_font = load_font(18, EN_FONTS, SCALE)
+    hi_font = load_font(18, HI_FONTS, SCALE)
     for frame in range(frame_count):
         frame_path = frames_dir / f"frame_{frame:05d}.png"
         with Image.open(frame_path) as source:
             image = source.convert("RGB")
-        draw = ImageDraw.Draw(image, "RGBA")
+        draw = ScaledDraw(ImageDraw.Draw(image, "RGBA"), SCALE)
         draw.rounded_rectangle((18, 18, WIDTH-18, 112), radius=22,
                                fill=(20, 42, 66, 218), outline=(255, 213, 110, 255), width=3)
         centered_text(draw, title, 48, title_font, (255, 225, 140), WIDTH-70, 3)
@@ -269,10 +300,10 @@ def render_scene(script_stem, title, scene, scene_number):
         "[narr][music]amix=inputs=2:duration=first:dropout_transition=1,"
         "afade=t=in:st=0:d=0.25,afade=t=out:st=" + str(max(0.1, duration-0.45)) + ":d=0.4[a]",
         "-map", "0:v:0", "-map", "[a]",
-        "-vf", f"fps=30,scale={FINAL_WIDTH}:{FINAL_HEIGHT}:flags=lanczos,format=yuv420p,"
+        "-vf", "fps=30,format=yuv420p,"
                f"fade=t=in:st=0:d=0.25,fade=t=out:st={max(0.1, duration-0.35)}:d=0.35",
-        "-t", f"{duration:.3f}", "-c:v", "libx264", "-preset", "veryfast",
-        "-crf", "21", "-c:a", "aac", "-b:a", "160k",
+        "-t", f"{duration:.3f}", "-c:v", "libx264", "-preset", "medium",
+        "-crf", "19", "-c:a", "aac", "-b:a", "160k",
         "-movflags", "+faststart", str(part),
     ])
     return part
@@ -300,8 +331,8 @@ def main():
         run_ffmpeg([
             "ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
             "-f", "concat", "-safe", "0", "-i", str(concat_file),
-            "-c:v", "libx264", "-preset", "veryfast",
-            "-crf", "21", "-c:a", "aac", "-b:a", "160k", "-movflags", "+faststart",
+            "-c:v", "libx264", "-preset", "medium",
+            "-crf", "19", "-c:a", "aac", "-b:a", "160k", "-movflags", "+faststart",
             str(final_video),
         ])
         print(f"Rendered animated video: {final_video}")
