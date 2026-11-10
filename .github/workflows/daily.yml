@@ -19,7 +19,9 @@ jobs:
   generate-shorts:
     name: Generate and verify bilingual Shorts
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 180
+    env:
+      DINO_QUALITY: 4k
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -90,8 +92,8 @@ jobs:
               duration = float(metadata["format"]["duration"])
               if not video_stream or not audio_stream:
                   raise SystemExit(f"{video} is missing video or audio")
-              if video_stream.get("width") != 1080 or video_stream.get("height") != 1920:
-                  raise SystemExit(f"{video} is not 1080x1920")
+              if video_stream.get("width") != 2160 or video_stream.get("height") != 3840:
+                  raise SystemExit(f"{video} is not native 4K 2160x3840")
               if not 5 <= duration <= 180:
                   raise SystemExit(f"{video} has invalid duration: {duration:.1f}s")
               if video.stat().st_size < 100_000:
