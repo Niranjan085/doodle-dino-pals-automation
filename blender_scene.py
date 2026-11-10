@@ -3,7 +3,8 @@ from mathutils import Vector
 from pathlib import Path
 
 argv = sys.argv[sys.argv.index("--")+1:] if "--" in sys.argv else []
-out_dir = Path(argv[0]); frames = int(argv[1]); out_dir.mkdir(parents=True, exist_ok=True)
+out_dir = Path(argv[0]); frames = int(argv[1]); quality = argv[2] if len(argv) > 2 else os.getenv("DINO_QUALITY", "1080p").lower(); out_dir.mkdir(parents=True, exist_ok=True)
+scale = 4 if quality in ("4k", "2160p", "uhd") else 2
 bpy.ops.object.select_all(action="SELECT"); bpy.ops.object.delete(use_global=False)
 scene=bpy.context.scene
 # Use Blender Workbench for fast, reliable headless 3D rendering in CI.
@@ -19,7 +20,7 @@ scene.display.shading.cavity_type = "BOTH"
 scene.display.shading.cavity_ridge_factor = 1.2
 scene.display.shading.cavity_valley_factor = 1.0
 scene.display.shading.studiolight_rotate_z = math.radians(25)
-scene.render.resolution_x=540; scene.render.resolution_y=960; scene.render.resolution_percentage=100
+scene.render.resolution_x=540*scale; scene.render.resolution_y=960*scale; scene.render.resolution_percentage=100
 scene.render.fps=12; scene.frame_end=frames
 scene.render.image_settings.file_format="PNG"; scene.render.film_transparent=False
 scene.world.color=(0.12,0.18,0.28)
@@ -75,6 +76,19 @@ cube("Flower pot",(2,-.1,.38),(.65,.6,.65),pot)
 stem=cube("Plant stem",(2,-.1,1.05),(.09,.09,.85),leaf,.04)
 uv("Plant leaf",(1.72,-.12,1.22),(.38,.15,.18),leaf).rotation_euler[1]=-.5
 uv("Plant leaf",(2.27,-.12,1.35),(.38,.15,.18),leaf).rotation_euler[1]=.5
+# Extra playful details: floating fireflies, twinkling stars and fluttering butterflies.
+sparkles=[]
+for i in range(9):
+    x=-2.7+(i%3)*2.6
+    z=3.8+(i//3)*.72
+    orb=uv("Floating sparkle",(x,.25,z),(.09,.09,.09),yellow)
+    sparkles.append((orb,x,z))
+butterflies=[]
+for i,(x,z) in enumerate([(-2.55,2.9),(2.65,3.7)]):
+    body_b=uv("Butterfly body",(x,-.15,z),(.08,.07,.22),dark)
+    left=uv("Butterfly left wing",(x-.18,-.17,z+.02),(.22,.06,.16),pink)
+    right=uv("Butterfly right wing",(x+.18,-.17,z+.02),(.22,.06,.16),orange)
+    butterflies.append((body_b,left,right,x,z))
 # camera and soft studio lighting
 bpy.ops.object.camera_add(location=(5.7,-11,5.3)); cam=bpy.context.object; direction=Vector((0,0,1.75))-cam.location; cam.rotation_euler=direction.to_track_quat("-Z","Y").to_euler(); cam.data.type="ORTHO"; cam.data.ortho_scale=7.2; scene.camera=cam
 def area(loc,power,size):
